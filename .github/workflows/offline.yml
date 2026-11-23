@@ -1,0 +1,28 @@
+name: Offline tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        mode: [stable, batching]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Prepare pinned source and test dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          bash scripts/fetch-source.sh ${{ matrix.mode }} build/maya
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/fetch-source.sh
+          bash -n scripts/test-offline.sh
+      - name: Test without CUDA or model files
+        run: PYTHON="$PWD/.venv/bin/python" bash scripts/test-offline.sh ${{ matrix.mode }} build/maya

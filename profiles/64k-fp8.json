@@ -1,0 +1,24 @@
+{
+  "exe": "/opt/maya/bin/maya-ik2",
+  "cwd": "/opt/maya/source",
+  "args": [
+    "--model",
+    "/models/Inkling-2-Mini-UD-Q4_K_M.gguf",
+    "--max-context",
+    "65536",
+    "--chunk",
+    "4096"
+  ],
+  "env": {
+    "IK2_KV": "fp8",
+    "IK2_GATE_TILE": "64",
+    "IK2_GATE_BF16": "1",
+    "IK2_Q8_UNROLL": "1",
+    "IK2_BATCH_PREFILL": "1"
+  },
+  "tokenizer": "/assets/tokenizer",
+  "model_name": "inkling-2-mini",
+  "sampling": {},
+  "host": "0.0.0.0",
+  "port": 8080
+}

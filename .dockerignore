@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!requirements.txt
+!scripts/
+!scripts/fetch-source.sh
+!patches/
+!patches/*.patch
+!profiles/
+!profiles/*.json
+!licenses/
+!licenses/*.txt

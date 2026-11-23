@@ -1,0 +1,11 @@
+/.venv/
+/build/
+/models/
+/assets/
+__pycache__/
+*.py[cod]
+*.gguf
+*.gguf_file
+*.safetensors
+*.log
+.env
