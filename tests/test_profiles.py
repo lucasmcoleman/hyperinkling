@@ -22,17 +22,17 @@ class ProfileTests(unittest.TestCase):
         return profile
 
     def test_default_profile(self):
-        profile = self.load("64k-fp8.json")
-        self.assertEqual(profile["args"][2:], ["--max-context", "65536", "--chunk", "4096"])
+        profile = self.load("192k-fp8.json")
+        self.assertEqual(profile["args"][2:], ["--max-context", "196608", "--chunk", "4096"])
         self.assertEqual(profile["env"]["IK2_KV"], "fp8")
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn('ARG HYPERINKLING_MODE=stable', dockerfile)
-        self.assertIn('CMD ["/opt/maya/profiles/64k-fp8.json"]', dockerfile)
+        self.assertIn('CMD ["/opt/maya/profiles/192k-fp8.json"]', dockerfile)
 
-    def test_long_context_profile(self):
-        profile = self.load("192k-fp8.json")
-        self.assertEqual(profile["args"][2:], ["--max-context", "196608", "--chunk", "4096"])
-        self.assertEqual(profile["env"], self.load("64k-fp8.json")["env"])
+    def test_64k_fallback_profile(self):
+        profile = self.load("64k-fp8.json")
+        self.assertEqual(profile["args"][2:], ["--max-context", "65536", "--chunk", "4096"])
+        self.assertEqual(profile["env"], self.load("192k-fp8.json")["env"])
 
     def test_draft_profile(self):
         profile = self.load("64k-fp8-dspark.json")

@@ -52,4 +52,4 @@ WORKDIR /opt/maya/source
 USER maya
 EXPOSE 8080
 ENTRYPOINT ["python", "serve/server.py", "--engine", "maya", "--host", "0.0.0.0", "--port", "8080", "--config"]
-CMD ["/opt/maya/profiles/64k-fp8.json"]
+CMD ["/opt/maya/profiles/192k-fp8.json"]

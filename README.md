@@ -1,6 +1,6 @@
 # HyperInkling
 
-Serve [Inkling 2 Mini](https://huggingface.co/thinkingmachines/Inkling-2-Mini) on an NVIDIA RTX 3090 with a text API. HyperInkling adds a mainline GGUF loader patch to the Maya IK2 CUDA engine and packages it with the Maya HTTP server and ready-to-run profiles. The default runs one request at a time with 64K FP8 KV and queues additional callers. A long-context profile raises that to 196,608 tokens on the same GPU with every expert still resident in VRAM.
+Serve [Inkling 2 Mini](https://huggingface.co/thinkingmachines/Inkling-2-Mini) on an NVIDIA RTX 3090 with a text API. HyperInkling adds a mainline GGUF loader patch to the Maya IK2 CUDA engine and packages it with the Maya HTTP server and ready-to-run profiles. The default runs one request at a time with 196,608 tokens of FP8 KV context, keeps every expert resident in VRAM, and queues additional callers. A 64K profile is included as a fallback.
 
 The project was inspired by [HyperQwen](https://github.com/syv-ai/HyperQwen), which showed how much a carefully tuned serving stack can speed up a model on a single consumer GPU. HyperInkling applies the same idea to Inkling 2 Mini.
 
@@ -51,6 +51,8 @@ docker run --rm --gpus all -p 127.0.0.1:8080:8080 \
   hyperinkling:stable
 ```
 
+This starts the 196K default profile, which leaves under 1 GB of VRAM free on a 24 GB card. If the GPU also drives a display or other work, add `/opt/maya/profiles/64k-fp8.json` after the image name to use the 64K fallback.
+
 Once the engine is ready, check it and send a request from another terminal. Stop the foreground server with Ctrl+C.
 
 ```bash
@@ -66,15 +68,15 @@ Pass the profile's path after the image name to override its default, for exampl
 
 | Profile in `/opt/maya/profiles/` | Context | Settings |
 | --- | ---: | --- |
-| [`64k-fp8.json`](profiles/64k-fp8.json) | 65,536 | Default. One active request, FP8 KV, 4,096-token prefill chunks. |
-| [`192k-fp8.json`](profiles/192k-fp8.json) | 196,608 | Long context. Same settings as the default: one active request, FP8 KV, 4,096-token prefill chunks. |
+| [`192k-fp8.json`](profiles/192k-fp8.json) | 196,608 | Default. One active request, FP8 KV, 4,096-token prefill chunks. |
+| [`64k-fp8.json`](profiles/64k-fp8.json) | 65,536 | Fallback with the same settings. Use it if the GPU is shared or 196K runs out of memory. |
 | [`64k-fp8-dspark.json`](profiles/64k-fp8-dspark.json) | 65,536 | Optional speculative decoding with FP8 KV, adaptive draft width up to 7, and the engine's default prefill chunk. |
 | [`8k-f16.json`](profiles/8k-f16.json) | 8,192 | One active request and FP16 KV. |
 | [`experimental-4x32k-fp8.json`](profiles/experimental-4x32k-fp8.json) | 32,768 per slot | Four slots, FP8 KV and 2,048-token prefill chunks. Requires the experimental build. |
 
 The context budget is shared by the rendered prompt and generated answer. Lower `--max-context` to leave more VRAM available.
 
-The 196,608-token profile was measured on the reference RTX 3090 with one request. A 186,777-token prompt with marker codes at its start and midpoint ran in 107 seconds of prefill (about 1,750 tokens/s). The model returned both markers, and VRAM peaked at 23,087 MiB, leaving about 0.9 GB free. 262,144 tokens started but ran out of VRAM on the same long-prompt run, so 196,608 is the largest size that passed. It is not a proven maximum: sizes between the two were not tried. Anything else on the GPU, such as a desktop session, reduces the headroom.
+The 196,608-token setting was measured on the reference RTX 3090 with a development build (`hyperinkling:maya-e819852-p2`), as a single request sent directly to the engine. A 186,777-token prompt with marker codes at its start and midpoint ran in 107 seconds of prefill (about 1,750 tokens/s). The model returned both markers, and VRAM peaked at 23,087 MiB, leaving about 0.9 GB free. The answer stopped at end of sequence after 14 of the 64 requested tokens, so this shows retrieval near the full context, not sustained long generation. 262,144 tokens went over the GPU's memory on the same test, so 196,608 is the largest size that passed. It is not a proven maximum, because sizes between the two were not tried. The public stable image has not yet been separately GPU-tested at 196,608 tokens. Anything else on the GPU, such as a desktop session, reduces the headroom; switch to `64k-fp8.json` if startup or a long request runs out of memory.
 
 For DSpark, download the official drafter and run the stable image with the DSpark profile.
 
