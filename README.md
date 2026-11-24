@@ -1,6 +1,8 @@
 # HyperInkling
 
-Serve [Inkling 2 Mini](https://huggingface.co/thinkingmachines/Inkling-2-Mini) on an NVIDIA RTX 3090 with a text API. HyperInkling adds a mainline GGUF loader patch to the Maya IK2 CUDA engine and packages it with the Maya HTTP server and ready-to-run profiles. The default runs one request at a time with 64K FP8 KV and queues additional callers.
+Serve [Inkling 2 Mini](https://huggingface.co/thinkingmachines/Inkling-2-Mini) on an NVIDIA RTX 3090 with a text API. HyperInkling adds a mainline GGUF loader patch to the Maya IK2 CUDA engine and packages it with the Maya HTTP server and ready-to-run profiles. The default runs one request at a time with 64K FP8 KV and queues additional callers. A long-context profile raises that to 196,608 tokens on the same GPU with every expert still resident in VRAM.
+
+The project was inspired by [HyperQwen](https://github.com/syv-ai/HyperQwen), which showed how much a carefully tuned serving stack can speed up a model on a single consumer GPU. HyperInkling applies the same idea to Inkling 2 Mini.
 
 ## Quick start
 
@@ -65,11 +67,14 @@ Pass the profile's path after the image name to override its default, for exampl
 | Profile in `/opt/maya/profiles/` | Context | Settings |
 | --- | ---: | --- |
 | [`64k-fp8.json`](profiles/64k-fp8.json) | 65,536 | Default. One active request, FP8 KV, 4,096-token prefill chunks. |
+| [`192k-fp8.json`](profiles/192k-fp8.json) | 196,608 | Long context. Same settings as the default: one active request, FP8 KV, 4,096-token prefill chunks. |
 | [`64k-fp8-dspark.json`](profiles/64k-fp8-dspark.json) | 65,536 | Optional speculative decoding with FP8 KV, adaptive draft width up to 7, and the engine's default prefill chunk. |
 | [`8k-f16.json`](profiles/8k-f16.json) | 8,192 | One active request and FP16 KV. |
 | [`experimental-4x32k-fp8.json`](profiles/experimental-4x32k-fp8.json) | 32,768 per slot | Four slots, FP8 KV and 2,048-token prefill chunks. Requires the experimental build. |
 
 The context budget is shared by the rendered prompt and generated answer. Lower `--max-context` to leave more VRAM available.
+
+The 196,608-token profile was measured on the reference RTX 3090 with one request. A 186,777-token prompt with marker codes at its start and midpoint ran in 107 seconds of prefill (about 1,750 tokens/s). The model returned both markers, and VRAM peaked at 23,087 MiB, leaving about 0.9 GB free. 262,144 tokens started but ran out of VRAM on the same long-prompt run, so 196,608 is the largest size that passed. It is not a proven maximum: sizes between the two were not tried. Anything else on the GPU, such as a desktop session, reduces the headroom.
 
 For DSpark, download the official drafter and run the stable image with the DSpark profile.
 
@@ -111,7 +116,7 @@ docker build --platform linux/amd64 --build-arg HYPERINKLING_MODE=batching \
 
 Use the same mounts as the stable server and choose `hyperinkling:batching /opt/maya/profiles/experimental-4x32k-fp8.json`. The [batching patch](patches/0002-experimental-batched-serving.patch) adds the multi-request engine protocol and per-request cache, sampler, and cancellation state. It batches decode rows when active requests overlap and interleaves chunks of prefill. The engine accepts up to eight slots, subject to VRAM. The multi-request path requires a single GPU with resident experts. DSpark is a single-request option.
 
-The included batch profile is for evaluation. The mixed-request parity, latency, throughput, and soak acceptance checks remain incomplete. GPU memory usage rises with both slot count and context. Configurations above the 64K reference profile, including 256K, are outside the measured baseline for this project. Use the stable image and default profile to switch back from an experiment.
+The included batch profile is for evaluation. The mixed-request parity, latency, throughput, and soak acceptance checks remain incomplete. GPU memory usage rises with both slot count and context. Batched configurations above 32K per slot, and any single-request context above 196,608 tokens, are outside the measured baseline for this project. Use the stable image and default profile to switch back from an experiment.
 
 ## Tests
 
@@ -135,5 +140,7 @@ The examples publish the API to host loopback. Keep it on a trusted machine, and
 For changes, run the offline tests and include the exact profile and source version when reporting runtime behavior. Synthetic prompts are sufficient for most bug reports. If reporting a security issue, use GitHub's private vulnerability reporting when enabled and keep exploit details and credentials out of public issues.
 
 ## License and credits
+
+HyperInkling is named after, and inspired by, [HyperQwen](https://github.com/syv-ai/HyperQwen) from syv-ai. It does not include HyperQwen code.
 
 Maya, Project Maya, Strata, and ggml retain their upstream copyright and terms. The upstream model and quantization are supplied by Thinking Machines Lab and Unsloth. See the [third-party notices](licenses/README.md) for source attribution and license scope.
